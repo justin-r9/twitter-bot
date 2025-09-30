@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Bot Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f8fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1DA1F2;
+        }
+        .button {
+            padding: 12px 24px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .start-button {
+            background-color: #1DA1F2;
+            color: white;
+        }
+        .start-button:hover {
+            background-color: #0c85d0;
+        }
+        .stop-button {
+            background-color: #E0245E;
+            color: white;
+        }
+        .stop-button:hover {
+            background-color: #c11b4f;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .logs-container {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .logs {
+            background-color: #f1f3f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .refresh-button {
+            background-color: #6c757d;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .refresh-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Twitter Bot Control</h1>
+        
+        <div id="status" class="status stopped">
+            Status: Stopped
+        </div>
+        
+        <button id="startButton" class="button start-button">Start Bot</button>
+        <button id="stopButton" class="button stop-button">Stop Bot</button>
+        
+        <div class="logs-container">
+            <button id="refreshLogs" class="button refresh-button">Refresh Logs</button>
+            <div id="logs" class="logs">No logs available</div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startButton = document.getElementById('startButton');
+            const stopButton = document.getElementById('stopButton');
+            const statusDiv = document.getElementById('status');
+            const logsDiv = document.getElementById('logs');
+            const refreshLogsButton = document.getElementById('refreshLogs');
+            
+            // Check initial status
+            checkStatus();
+            getLogs();
+            
+            // Set up event listeners
+            startButton.addEventListener('click', startBot);
+            stopButton.addEventListener('click', stopBot);
+            refreshLogsButton.addEventListener('click', getLogs);
+            
+            // Check status every 5 seconds
+            setInterval(checkStatus, 5000);
+            
+            function startBot() {
+                fetch('/start_bot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    checkStatus();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error starting bot');
+                });
+            }
+            
+            function stopBot() {
+                fetch('/stop_bot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    checkStatus();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error stopping bot');
+                });
+            }
+            
+            function checkStatus() {
+                fetch('/bot_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'running') {
+                        statusDiv.textContent = 'Status: Running';
+                        statusDiv.className = 'status running';
+                    } else {
+                        statusDiv.textContent = 'Status: Stopped';
+                        statusDiv.className = 'status stopped';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+            
+            function getLogs() {
+                fetch('/get_logs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        logsDiv.textContent = data.logs;
+                    } else {
+                        logsDiv.textContent = 'Error loading logs: ' + data.message;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    logsDiv.textContent = 'Error loading logs';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
