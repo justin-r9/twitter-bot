@@ -1,0 +1,37 @@
+# Twitter API keys (get these from Twitter Developer portal)
+TWITTER_API_KEY = "your_api_key_here"
+TWITTER_API_SECRET = "your_api_secret_here"
+TWITTER_ACCESS_TOKEN = "your_access_token_here"
+TWITTER_ACCESS_TOKEN_SECRET = "your_access_token_secret_here"
+TWITTER_BEARER_TOKEN = "your_bearer_token_here"
+
+# GLM-4.5-Flash API key (get this from Zhipu AI)
+GLM_API_KEY = "your_glm_api_key_here"
+GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+
+# Reddit API credentials
+REDDIT_CLIENT_ID = "your_reddit_client_id"
+REDDIT_CLIENT_SECRET = "your_reddit_client_secret"
+REDDIT_USER_AGENT = "script:twitter-bot-content-scraper:1.0 (by u/your_reddit_username)"
+
+# Subreddits to scrape content from
+SUBREDDITS_TO_SCRAPE = [
+    "technology",
+    "news",
+    "worldnews",
+    "politics",
+    "science",
+    "futurology",
+    "todayilearned",
+    # Add more accounts you want to follow
+]
+
+# Bot settings
+MIN_WAIT_MINUTES = 30   # Minimum minutes between tweets (30 minutes)
+MAX_WAIT_MINUTES = 60   # Maximum minutes between tweets (1 hour)
+MAX_RUN_HOURS = 9       # Maximum hours the bot will run continuously
+MAX_POSTS_PER_DAY = 16  # Maximum posts per day
+MAX_POSTS_PER_MONTH = 100  # Maximum posts per month (Twitter's limit)
+
+# Location for trending topics (1 = Worldwide)
+TREND_LOCATION_WOEID = 1
