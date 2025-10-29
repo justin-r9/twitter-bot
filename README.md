@@ -1,12 +1,12 @@
 # Twitter Bot with Reddit Content and GLM-4.5-Flash Integration
 
-This is a Twitter automation bot that scrapes content from Reddit, generates provocative tweets using GLM-4.5-Flash, and posts them to Twitter. The bot includes a web interface for easy control and monitoring.
+This is a Twitter automation bot that scrapes content from Reddit, generates mild, insightful comments using GLM-4.5-Flash, and posts them to Twitter. The bot includes a web interface for easy control and monitoring.
 
 ## Features
 
 - **Reddit Content Scraping**: Automatically fetches trending posts from specified subreddits
-- **AI-Powered Tweet Generation**: Uses GLM-4.5-Flash to create engaging, provocative content
-- **Twitter Integration**: Posts generated tweets to your Twitter account
+- **AI-Powered Comment Generation**: Uses GLM-4.5-Flash to create mild, insightful comments
+- **Twitter Integration**: Posts generated comments to your Twitter account
 - **Web Control Panel**: Start/stop the bot and monitor activity through a web interface
 - **Rate Limiting**: Respects Twitter's API limits and daily/monthly posting caps
 - **Automatic Time Zone Handling**: Uses UTC time for consistent operation
@@ -162,7 +162,7 @@ Add or remove subreddits in the `SUBREDDITS_TO_SCRAPE` list in `config.py`.
 
 ### Changing Tweet Style
 
-Modify the prompt in the `generate_tweet_content` method in `twitter_automation.py` to change the tone and style of generated tweets.
+Modify the prompt in the `generate_comment_content` method in `twitter_automation.py` to change the tone and style of generated comments.
 
 ## Troubleshooting
 
