@@ -42,7 +42,7 @@ if sys.stdout.encoding != 'utf-8':
 
 # Set up file handler with rotation (10MB per file, keep 5 backups)
 file_handler = RotatingFileHandler(
-    "logs/twitter_bot.log", 
+    "logs/twitter_bot.log",
     maxBytes=10*1024*1024,  # 10MB
     backupCount=5
 )
@@ -62,14 +62,14 @@ class TwitterAutomation:
     def __init__(self):
         # This sets up our connection to Twitter
         logging.info("Setting up Twitter API connection...")
-        
+
         # For posting tweets - using OAuth 1.0a
         self.auth = tweepy.OAuth1UserHandler(
             TWITTER_API_KEY, TWITTER_API_SECRET,
             TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
         )
         self.api = tweepy.API(self.auth, wait_on_rate_limit=True)
-        
+
         # For reading tweets (home timeline) - we are not using this anymore for scraping
         self.client = tweepy.Client(
             TWITTER_BEARER_TOKEN,
@@ -77,7 +77,7 @@ class TwitterAutomation:
             TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET,
             wait_on_rate_limit=True
         )
-        
+
         # Set up Reddit API connection
         logging.info("Setting up Reddit API connection...")
         self.reddit = praw.Reddit(
@@ -85,49 +85,49 @@ class TwitterAutomation:
             client_secret=REDDIT_CLIENT_SECRET,
             user_agent=REDDIT_USER_AGENT
         )
-        
+
         # This will help us avoid processing the same post multiple times
         self.last_processed_ids = set()
-        
+
         # Track when the bot started
         self.start_time = datetime.now()
-        
+
         # Set maximum run time (9 hours)
         self.max_run_time = timedelta(hours=MAX_RUN_HOURS)
-        
+
         # Flag to control bot execution
         self.running = True
-        
+
         # Track posts per day and month
         self.posts_today = 0
         self.posts_this_month = 0
-        
+
         # Get current UTC date and month
         utc_now = datetime.now(pytz.UTC)
         self.current_day = utc_now.date()
         self.current_month = utc_now.month
         self.current_year = utc_now.year
-        
+
         logging.info(f"Bot initialized. Current UTC date: {self.current_day}, Current month: {self.current_month}/{self.current_year}")
         logging.info("Twitter and Reddit API connections established")
-    
+
     def stop(self):
         """Set the running flag to False to stop the bot"""
         self.running = False
         logging.info("Stop signal received")
-    
+
     def check_run_time(self):
         """Check if the bot has been running for more than the maximum allowed time"""
         current_time = datetime.now()
         elapsed_time = current_time - self.start_time
-        
+
         if elapsed_time >= self.max_run_time:
             error_msg = f"Bot has been running for {elapsed_time} which exceeds the maximum allowed time of {self.max_run_time}"
             logging.error(error_msg)
             logging.error("Stopping bot due to maximum run time exceeded")
             return False
         return True
-    
+
     def check_limits(self):
         """Check if we've reached daily or monthly limits"""
         # Get current UTC time
@@ -135,52 +135,52 @@ class TwitterAutomation:
         current_date = utc_now.date()
         current_month = utc_now.month
         current_year = utc_now.year
-        
+
         # Reset counters if day has changed
         if current_date != self.current_day:
             logging.info(f"Day changed from {self.current_day} to {current_date}. Resetting daily post counter.")
             self.posts_today = 0
             self.current_day = current_date
-        
+
         # Reset counters if month has changed
         if current_month != self.current_month or current_year != self.current_year:
             logging.info(f"Month changed from {self.current_month}/{self.current_year} to {current_month}/{self.current_year}. Resetting monthly post counter.")
             self.posts_this_month = 0
             self.current_month = current_month
             self.current_year = current_year
-        
+
         # Check daily limit
         if self.posts_today >= MAX_POSTS_PER_DAY:
             logging.info(f"Daily post limit reached ({self.posts_today}/{MAX_POSTS_PER_DAY})")
             return "daily"
-        
+
         # Check monthly limit
         if self.posts_this_month >= MAX_POSTS_PER_MONTH:
             logging.info(f"Monthly post limit reached ({self.posts_this_month}/{MAX_POSTS_PER_MONTH})")
             return "monthly"
-        
+
         return None
-    
+
     def calculate_wait_until_next_period(self, limit_type):
         """Calculate how long to wait until the next day or month"""
         utc_now = datetime.now(pytz.UTC)
-        
+
         if limit_type == "daily":
             # Calculate time until midnight UTC
             tomorrow = utc_now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
             wait_seconds = (tomorrow - utc_now).total_seconds()
             logging.info(f"Waiting until next day (UTC). {wait_seconds/3600:.1f} hours remaining.")
             return wait_seconds
-        
+
         elif limit_type == "monthly":
             # Calculate time until next month
             current_day = utc_now.day
             current_month = utc_now.month
             current_year = utc_now.year
-            
+
             # Get the number of days in the current month
             days_in_month = monthrange(current_year, current_month)[1]
-            
+
             # Calculate the first day of next month
             if current_month == 12:
                 next_month = 1
@@ -188,20 +188,20 @@ class TwitterAutomation:
             else:
                 next_month = current_month + 1
                 next_year = current_year
-            
+
             next_month_date = datetime(next_year, next_month, 1, tzinfo=pytz.UTC)
             wait_seconds = (next_month_date - utc_now).total_seconds()
             logging.info(f"Waiting until next month (UTC). {wait_seconds/86400:.1f} days remaining.")
             return wait_seconds
-        
+
         return 0
-    
+
     def get_reddit_posts(self, subreddit_name, limit=10, time_filter='day'):
         """Get posts from a specific subreddit"""
         try:
             logging.info(f"Fetching posts from r/{subreddit_name}...")
             subreddit = self.reddit.subreddit(subreddit_name)
-            
+
             # Get top posts from the specified time filter
             posts = []
             for post in subreddit.top(time_filter=time_filter, limit=limit):
@@ -214,209 +214,132 @@ class TwitterAutomation:
                     'num_comments': post.num_comments,
                     'created_utc': post.created_utc
                 })
-            
+
             logging.info(f"Retrieved {len(posts)} posts from r/{subreddit_name}")
             return posts
         except Exception as e:
             logging.error(f"Error fetching posts from r/{subreddit_name}: {e}")
             return []
-    
+
     def get_trending_reddit_posts(self, limit=20):
         """Get trending posts from r/all and r/popular"""
         try:
             logging.info("Fetching trending Reddit posts...")
             trending_posts = []
-            
+
             # Get top posts from r/all
             all_posts = self.get_reddit_posts('all', limit=limit//2, time_filter='day')
             trending_posts.extend(all_posts)
-            
+
             # Get top posts from r/popular
             popular_posts = self.get_reddit_posts('popular', limit=limit//2, time_filter='day')
             trending_posts.extend(popular_posts)
-            
+
             # Sort by score (descending) to get the most popular
             trending_posts.sort(key=lambda x: x['score'], reverse=True)
-            
+
             logging.info(f"Retrieved {len(trending_posts)} trending Reddit posts")
             return trending_posts
         except Exception as e:
             logging.error(f"Error fetching trending Reddit posts: {e}")
             return []
-    
+
     def scrape_content(self):
         """Collect content from Reddit subreddits and trending posts"""
         all_posts = []
-        
+
         # Get posts from specified subreddits
         for subreddit_name in SUBREDDITS_TO_SCRAPE:
             subreddit_posts = self.get_reddit_posts(subreddit_name, limit=5, time_filter='day')
             all_posts.extend(subreddit_posts)
-        
+
         # Get trending posts
         trending_posts = self.get_trending_reddit_posts(limit=10)
         all_posts.extend(trending_posts)
-        
+
         # Filter out posts we've already processed
         new_posts = [post for post in all_posts if post['id'] not in self.last_processed_ids]
-        
+
         # Remember these posts so we don't process them again
         for post in new_posts:
             self.last_processed_ids.add(post['id'])
-        
+
         # Keep only the last 1000 IDs to prevent memory issues
         if len(self.last_processed_ids) > 1000:
             self.last_processed_ids = set(list(self.last_processed_ids)[-1000:])
-        
+
         logging.info(f"Scraped {len(new_posts)} new Reddit posts")
         return new_posts
-    
-    def generate_tweet_content(self, posts):
-        """Use GLM-4.5-Flash to create provocative/ragebait content"""
+
+    def generate_comment_content(self, posts):
+        """Use GLM-4.5-Flash to create a mild, insightful comment"""
         if not posts:
             return None
-            
-        # Prepare the content from posts to send to GLM
+
         context = "\n".join([f"Title: {post['title']}\nContent: {post['selftext'][:200]}..." if post['selftext'] else f"Title: {post['title']}" for post in posts[:10]])
-        
+
         headers = {
             "Authorization": f"Bearer {GLM_API_KEY}",
             "Content-Type": "application/json"
         }
-        
-        # Simplified prompt to avoid parameter errors
-        prompt = f"""Based on the following Reddit posts, generate a highly provocative and controversial tweet that will maximize engagement.
+
+        prompt = f"""Based on the following Reddit posts, please generate a mild and insightful comment that encourages thoughtful discussion.
 
 Reddit posts:
 {context}
 
 Requirements:
-- Write from the perspective of a semi-conservative non-white male
-- Take a strong, polarizing stance on one of the topics
-- Use strong emotional language and absolute statements
-- Start with an attention-grabbing statement
-- Include 2-3 relevant hashtags
-- Create an "us vs them" narrative to spark debate
-- Use exaggeration or hyperbole for dramatic effect
-- Ask a direct question to encourage replies
-- Keep between 200-240 characters
+- Write from the perspective of a curious and open-minded individual.
+- Offer a balanced viewpoint or ask a genuine question to learn more.
+- Use respectful and inclusive language.
+- Avoid making absolute statements or generalizations.
+- Aim for a friendly and approachable tone.
+- Keep the comment between 150-200 characters.
 
-Tweet:"""
-    
+Comment:"""
+
         data = {
             "model": "GLM-4.5-Flash",
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a Twitter provocateur specializing in creating divisive, engaging content. Your persona is a semi-conservative non-white male who isn't afraid to challenge mainstream narratives."
+                    "content": "You are an AI assistant that specializes in creating thoughtful and respectful online comments. Your goal is to foster positive and constructive conversations."
                 },
                 {
                     "role": "user",
                     "content": prompt
                 }
             ],
-            "max_tokens": 8192,  # Reduced to a more reasonable value
-            "temperature": 0.9
+            "max_tokens": 256,
+            "temperature": 0.7
         }
-        
+
         try:
-            logging.info("Generating provocative tweet content with GLM-4.5-Flash...")
+            logging.info("Generating comment content with GLM-4.5-Flash...")
             response = requests.post(GLM_API_URL, headers=headers, json=data)
             response.raise_for_status()
-            
-            # Log the response for debugging
-            logging.debug(f"GLM API Response: {response.text}")
-            
+
             response_data = response.json()
-            
-            # Check if the expected structure exists in the response
-            if "choices" not in response_data or len(response_data["choices"]) == 0:
-                logging.error("No choices in GLM API response")
-                logging.error(f"Full response: {response_data}")
+
+            if "choices" not in response_data or not response_data["choices"]:
+                logging.error("No choices in GLM API response: %s", response_data)
                 return None
-                    
-            if "message" not in response_data["choices"][0]:
-                logging.error("No message in GLM API response choice")
-                logging.error(f"Full response: {response_data}")
+
+            generated_content = response_data["choices"][0]["message"].get("content", "").strip()
+
+            if not generated_content:
+                logging.error("Empty content received from GLM API.")
                 return None
-                    
-            # Extract content from both content and reasoning_content fields
-            content = response_data["choices"][0]["message"].get("content", "")
-            reasoning_content = response_data["choices"][0]["message"].get("reasoning_content", "")
-            
-            # Combine both contents to ensure we have the full response
-            full_response = content + "\n" + reasoning_content
-            
-            # Extract the tweet content - look for the last part that could be a tweet
-            generated_content = ""
-            
-            # Split into lines and look for a tweet-like statement
-            lines = full_response.split('\n')
-            
-            # First, try to find a line that looks like a tweet (200-280 characters)
-            for line in lines:
-                line = line.strip()
-                if 200 <= len(line) <= 280:
-                    # Check if it has tweet-like characteristics
-                    if any(char in line for char in ['#', '?', '!']) or any(word in line.lower() for word in ['why', 'how', 'what', 'when', 'the', 'is', 'are']):
-                        generated_content = line
-                        break
-            
-            # If not found, look for any line that could be a tweet
-            if not generated_content:
-                for line in lines:
-                    line = line.strip()
-                    if 50 <= len(line) <= 280:
-                        # Check if it has tweet-like characteristics
-                        if any(char in line for char in ['#', '?', '!']) or any(word in line.lower() for word in ['why', 'how', 'what', 'when', 'the', 'is', 'are']):
-                            generated_content = line
-                            break
-            
-            # If still not found, take the longest line under 280 characters
-            if not generated_content:
-                longest_line = ""
-                for line in lines:
-                    line = line.strip()
-                    if len(line) <= 280 and len(line) > len(longest_line):
-                        longest_line = line
-                generated_content = longest_line
-            
-            # Clean up the tweet content
-            if generated_content:
-                # Remove any quotes at the beginning or end
-                generated_content = generated_content.strip('"\'')
-                
-                # If the tweet is too long, truncate it
-                if len(generated_content) > 280:
-                    generated_content = generated_content[:277] + "..."
-            
-            if not generated_content:
-                logging.error("Could not extract tweet from response")
-                logging.debug(f"Full response: {full_response}")
-                return None
-                    
-            logging.info(f"Generated provocative tweet: {generated_content}")
+
+            logging.info(f"Generated comment: {generated_content}")
             return generated_content
         except requests.exceptions.HTTPError as http_err:
-            # Fix Unicode encoding issue by replacing non-ASCII characters
-            error_content = http_err.response.text
-            try:
-                # Try to encode as ASCII, replacing non-ASCII characters
-                error_content = error_content.encode('ascii', errors='replace').decode('ascii')
-            except:
-                # If that fails, just use a generic message
-                error_content = "API error occurred (non-ASCII characters in response)"
-            
-            logging.error(f"HTTP error occurred: {http_err}")
-            logging.error(f"Response content: {error_content}")
-            return None
-        except requests.exceptions.RequestException as req_err:
-            logging.error(f"Request error occurred: {req_err}")
+            logging.error(f"HTTP error occurred: {http_err} - {http_err.response.text}")
             return None
         except Exception as e:
-            logging.error(f"Error generating tweet content: {e}")
+            logging.error(f"An unexpected error occurred: {e}")
             return None
-    
+
     def post_tweet(self, content):
         """Post the generated tweet to Twitter"""
         try:
@@ -431,75 +354,75 @@ Tweet:"""
         except Exception as e:
             logging.error(f"Error posting tweet: {e}")
             return False
-    
+
     def run(self):
         """Main function that runs the automation loop"""
         logging.info("Starting Twitter automation bot")
         self.running = True
-        
+
         while self.running:
             try:
                 # Check if we've exceeded the maximum run time
                 if not self.check_run_time():
                     break
-                
+
                 # Check if we've reached daily or monthly limits
                 limit_reached = self.check_limits()
                 if limit_reached:
                     # Calculate how long to wait until the next period
                     wait_seconds = self.calculate_wait_until_next_period(limit_reached)
-                    
+
                     # Wait until the next period, checking the running flag periodically
                     end_time = time.time() + wait_seconds
                     while time.time() < end_time and self.running:
                         time.sleep(60)  # Check every minute
                     continue
-                
+
                 # Step 1: Scrape content from Reddit
                 posts = self.scrape_content()
-                
+
                 if posts:
                     # Step 2: Generate new provocative tweet content using GLM-4.5-Flash
-                    tweet_content = self.generate_tweet_content(posts)
-                    
-                    if tweet_content:
+                    comment_content = self.generate_comment_content(posts)
+
+                    if comment_content:
                         # Step 3: Post the tweet
-                        self.post_tweet(tweet_content)
-                        
+                        self.post_tweet(comment_content)
+
                         # Wait for a random time between posts
                         wait_minutes = random.randint(MIN_WAIT_MINUTES, MAX_WAIT_MINUTES)
                         wait_seconds = wait_minutes * 60
-                        
+
                         logging.info(f"Waiting for {wait_minutes} minutes before next tweet...")
-                        
+
                         # Check the running flag periodically during the wait
                         end_time = time.time() + wait_seconds
                         while time.time() < end_time and self.running:
                             time.sleep(10)  # Check every 10 seconds
                     else:
-                        logging.warning("Failed to generate tweet content")
+                        logging.warning("Failed to generate comment content")
                         # Wait a shorter time before retrying (5 minutes instead of the full interval)
                         wait_minutes = 5
                         wait_seconds = wait_minutes * 60
                         logging.info(f"Waiting for {wait_minutes} minutes before retrying...")
-                        
+
                         # Check the running flag periodically during the wait
                         end_time = time.time() + wait_seconds
                         while time.time() < end_time and self.running:
                             time.sleep(10)  # Check every 10 seconds
                 else:
                     logging.info("No new Reddit posts to process")
-                    
+
                     # Wait a shorter time before retrying (5 minutes)
                     wait_minutes = 5
                     wait_seconds = wait_minutes * 60
                     logging.info(f"Waiting for {wait_minutes} minutes before retrying...")
-                    
+
                     # Check the running flag periodically during the wait
                     end_time = time.time() + wait_seconds
                     while time.time() < end_time and self.running:
                         time.sleep(10)  # Check every 10 seconds
-                
+
             except KeyboardInterrupt:
                 logging.info("Bot stopped by user")
                 break
@@ -511,7 +434,7 @@ Tweet:"""
                     if not self.running:
                         break
                     time.sleep(1)
-        
+
         logging.info("Bot stopped")
 
 if __name__ == "__main__":
